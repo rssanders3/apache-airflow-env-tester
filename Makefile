@@ -3,7 +3,7 @@ DC := docker compose
 .PHONY: up down restart logs ps build
 
 up:
-	build
+	$(DC) build
 	$(DC) up -d
 
 down:

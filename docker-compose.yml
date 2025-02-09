@@ -23,34 +23,29 @@
 # This configuration supports basic configuration using environment variables or an .env file
 # The following variables are supported:
 #
-# AIRFLOW_IMAGE_NAME           - Docker image name used to run Airflow.
-#                                Default: apache/airflow:2.2.2-python3.7
 # AIRFLOW_UID                  - User ID in Airflow containers
 #                                Default: 50000
-# Those configurations are useful mostly in case of standalone testing/running Airflow in test/try-out mode
-#
 # _AIRFLOW_WWW_USER_USERNAME   - Username for the administrator account (if requested).
 #                                Default: airflow
 # _AIRFLOW_WWW_USER_PASSWORD   - Password for the administrator account (if requested).
 #                                Default: airflow
 # _PIP_ADDITIONAL_REQUIREMENTS - Additional PIP requirements to add when starting all containers.
 #                                Default: ''
-#
-# Feel free to modify this file to suit your needs.
+
 ---
 x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.2.2-python3.7}
+  image: apache/airflow:${APACHE_AIRFLOW_VERSION}-python${PYTHON_VERSION}
   # build: .
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: ${DATABASE_SQL_ALCHEMY_PROTOCOL}://airflow:airflow@database/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: ${DATABASE_RESULTS_BACKEND_PROTOCOL}://airflow:airflow@database/airflow
+    AIRFLOW__CELERY__BROKER_URL: ${QUEUE_BROKER_URL}
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -62,35 +57,50 @@ x-airflow-common:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
+    - ./scripts:/opt/scripts
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
-    redis:
+    queue:
       condition: service_healthy
-    postgres:
+    database:
       condition: service_healthy
 
 services:
-  postgres:
-    image: postgres:13
+  database:
+    image: ${DATABASE_ENGINE}:${DATABASE_VERSION}
     environment:
+      DATABASE_ENGINE: ${DATABASE_ENGINE}
+      POSTGRES_DB: airflow
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: airflow
+      MYSQL_USER: airflow
+      MYSQL_PASSWORD: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - db-volume:/var/lib/${DATABASE_ENGINE}/data
+      - ./scripts:/opt/scripts
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ["CMD", "bash", "/opt/scripts/db_healthcheck.sh"]
       interval: 5s
       retries: 5
     restart: always
 
-  redis:
-    image: redis:latest
+  queue:
+    image: ${QUEUE_ENGINE}:${QUEUE_VERSION}
+    environment:
+      QUEUE_ENGINE: ${QUEUE_ENGINE}
     expose:
+      # Redis ports
       - 6379
+      # Rabbitmq ports
+      - 5672
+      - 15672
+    volumes:
+      - ./scripts:/opt/scripts
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "bash", "/opt/scripts/queue_healthcheck.sh"]
       interval: 5s
       timeout: 30s
       retries: 50
@@ -268,4 +278,4 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  postgres-db-volume:
+  db-volume:
