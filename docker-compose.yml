@@ -71,16 +71,24 @@ services:
     image: ${DATABASE_ENGINE}:${DATABASE_VERSION}
     environment:
       DATABASE_ENGINE: ${DATABASE_ENGINE}
-      POSTGRES_DB: airflow
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
+      # MySQL environment variables
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: airflow
       MYSQL_USER: airflow
       MYSQL_PASSWORD: airflow
+      # PostgreSQL environment variables
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    ports:
+      # MySQL ports
+      - 3306:3306
+      # PostgreSQL ports
+      - 5432:5432
     volumes:
-      - db-volume:/var/lib/${DATABASE_ENGINE}/data
+      - db-volume:${DATABASE_FOLDER}
       - ./scripts:/opt/scripts
+    command: ${DATABASE_COMMAND}
     healthcheck:
       test: ["CMD", "bash", "/opt/scripts/db_healthcheck.sh"]
       interval: 5s
@@ -91,12 +99,15 @@ services:
     image: ${QUEUE_ENGINE}:${QUEUE_VERSION}
     environment:
       QUEUE_ENGINE: ${QUEUE_ENGINE}
+      # RabbitMQ environment variables
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
     expose:
       # Redis ports
-      - 6379
+      - 6379:6379
       # Rabbitmq ports
-      - 5672
-      - 15672
+      - 5672:5672
+      - 15672:15672
     volumes:
       - ./scripts:/opt/scripts
     healthcheck:
