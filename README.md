@@ -52,3 +52,16 @@ Trace through Container Logs
 ```
 make logs
 ```
+
+# Access Airflow
+After setting up your environment and starting up Airflow using the commands above, you can access Airflow (after a few minutes of start up time) by navigating to the Airflow Web Server from your browser:
+```
+http://localhost:8080
+```
+Default credentials: airflow/airflow
+
+# Testing DAGs
+In the project root directory there is a `./dags/` folder. To test an Airflow DAG, place the python file defining the DAG in this directory. The DAG should automatmcially be distributed to the containers and after the Scheduler processes the dag file, should show up in the Web Server.
+
+# Testing Plugins
+In the project root directory there is a `./plugins/` folder. To test an Airflow Plugin, place the python and template files defining the Plugin in this directory. Then restart Airflow.
