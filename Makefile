@@ -1,4 +1,4 @@
-DC := docker compose
+DC := source .env; docker compose
 
 .PHONY: up down restart logs ps build
 
